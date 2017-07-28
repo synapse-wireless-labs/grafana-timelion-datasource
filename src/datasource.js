@@ -29,12 +29,12 @@ export class TimelionDatasource {
     }
 
     query(options) {
-        let query = this.buildQueryParameters(options);
-        let oThis = this;
+        const query = this.buildQueryParameters(options);
+        const oThis = this;
         if (query.targets.length <= 0) {
             return this.q.when({data: []});
         }
-        let reqs = _.map(options.queries,
+        const reqs = _.map(options.queries,
             query => oThis.request({
                 url: this.url + '/run',
                 data: query,
@@ -65,8 +65,8 @@ export class TimelionDatasource {
     }
 
     annotationQuery(options) {
-        let query = this.templateSrv.replace(options.annotation.query, {}, 'glob');
-        let annotationQuery = {
+        const query = this.templateSrv.replace(options.annotation.query, {}, 'glob');
+        const annotationQuery = {
             range: options.range,
             annotation: {
                 name: options.annotation.name,
@@ -88,7 +88,7 @@ export class TimelionDatasource {
     }
 
     metricFindQuery(query) {
-        let interpolated = {
+        const interpolated = {
             target: this.templateSrv.replace(query, null, 'regex')
         };
 
@@ -110,7 +110,7 @@ export class TimelionDatasource {
     }
 
     buildQueryParameters(options) {
-        let oThis = this;
+        const oThis = this;
         //remove placeholder targets
         options.targets = _.filter(options.targets, target => {
             return target.target !== 'select metric' && !target.hide;
@@ -127,24 +127,24 @@ export class TimelionDatasource {
             }
         };
 
-        let targets = _.flatten(_.map(options.targets, target => {
-            let target = oThis.templateSrv
+        const targets = _.flatten(_.map(options.targets, target => {
+            const target = oThis.templateSrv
                 .replace(target.target)
                 .replace(/\r\n|\r|\n/mg, "");
-            let targets = _.map(target.split(".es(").slice(1), part => ".es(" + part);
-            return _.map(targets, target => {
-                let scale_interval = /.scale_interval\(([^\)]*)\)/.exec(target);
-                let interval = target.interval || undefined;
+            const es_targets = _.map(target.split(".es(").slice(1), part => ".es(" + part);
+            return _.map(es_targets, es => {
+                const scale_interval = /.scale_interval\(([^)]*)\)/.exec(es);
+                let interval = es.interval || undefined;
                 if (scale_interval) {
                     interval = scale_interval[1];
-                    target = target.replace(scale_interval[0], "");
+                    es = es.replace(scale_interval[0], "");
                 }
-                return {target: target, interval: interval};
+                return {target: es, interval: interval};
             });
         }));
-        let intervalGroups = _.groupBy(targets, t => t.interval);
-        let intervals = Object.keys(intervalGroups);
-        let queries = _.map(intervals, key => ({
+        const intervalGroups = _.groupBy(targets, t => t.interval);
+        const intervals = Object.keys(intervalGroups);
+        const queries = _.map(intervals, key => ({
             interval: key,
             sheet: _.map(intervalGroups[key], target => target.target)
         }));
