@@ -73,7 +73,7 @@ System.register(["lodash"], function (_export, _context) {
                 data: query,
                 method: 'POST'
               }).then(function (response) {
-                return oThis.readTimlionSeries(response).map(function (list, ix) {
+                return TimelionDatasource.readTimlionSeries(response).map(function (list, ix) {
                   return {
                     "target": list.label,
                     "datapoints": _.map(list.data, function (d) {
