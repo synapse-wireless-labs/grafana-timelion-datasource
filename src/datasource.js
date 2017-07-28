@@ -4,20 +4,25 @@ export class TimelionDatasource {
 
   constructor(instanceSettings, $q, backendSrv, templateSrv) {
     this.instanceSettings = instanceSettings;
-    this.esVersion = this.instanceSettings.esVersion  || "5.3.0"
+    this.esVersion = this.instanceSettings.esVersion  || "5.3.2"
     this.type = instanceSettings.type;
     this.url = instanceSettings.url;
     this.name = instanceSettings.name;
     this.q = $q;
     this.backendSrv = backendSrv;
     this.templateSrv = templateSrv;
+
+    this.withCredentials = instanceSettings.withCredentials;
+    this.headers = {'Content-Type': 'application/json',
+                    'kbn-version': this.esVersion };
+    if (typeof instanceSettings.basicAuth === 'string' && instanceSettings.basicAuth.length > 0) {
+      this.headers['Authorization'] = instanceSettings.basicAuth;
+    }
   }
 
   request(options){
-    options.headers = {
-      "kbn-version": this.esVersion,
-      "Content-Type": "application/json;charset=UTF-8"
-    };
+    options.withCredentials = this.withCredentials;
+    options.headers = this.headers;
     return this.backendSrv.datasourceRequest(options);
   }
 
@@ -46,14 +51,15 @@ export class TimelionDatasource {
   }
 
   testDatasource() {
-    return this.backendSrv.datasourceRequest({
+    return this.request({
       url: this.url + '/run',
-      method: 'GET'
+      data: {time:{from:"now-1s", to:"now", interval:"1s"}},
+      method: 'POST'
     }).then(response => {
-      if (response.status === 400) {
+       if (response.status === 200) {
         return { status: "success", message: "Data source is working", title: "Success" };
-      }
-    });
+       }
+    })
   }
 
   annotationQuery(options) {
@@ -113,7 +119,7 @@ export class TimelionDatasource {
                         "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
                         "interval":"auto",
                         "mode":"absolute",
-                        "timezone":"GMT",
+                        "timezone":"America/Chicago",
                         "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
                       }
                     };
