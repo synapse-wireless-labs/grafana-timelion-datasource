@@ -1,9 +1,14 @@
 <query-editor-row query-ctrl="ctrl" class="generic-datasource-query-row" has-text-edit-mode="true">
     <div class="gf-form-inline">
-        <input type="text" class="gf-form-input ng-pristine ng-untouched ng-valid ng-empty" ng-model="ctrl.target.target"
-               spellcheck="false" placeholder="Timelion query" ng-blur="ctrl.onChangeInternal()">
-
-        <div class="gf-form omax-width-15">
+        <div class="gf-form gf-form--grow">
+            <label class="gf-form-label width-7 query-keyword">Expression</label>
+            <input type="text" class="gf-form-input ng-pristine ng-untouched ng-valid ng-empty"
+                   ng-model="ctrl.target.target"
+                   spellcheck="false" placeholder="Timelion query" ng-blur="ctrl.onChangeInternal()">
+        </div>
+    </div>
+    <div class="gf-form-inline">
+        <div class="gf-form query-keyword omax-width-15">
             <label class="gf-form-label width-7">Interval</label>
             <metric-segment-model property="ctrl.interval" get-options="ctrl.intervalOptions"
                                   on-change="ctrl.onChangeInternal()" css-class="width-12"
