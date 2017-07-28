@@ -126,7 +126,7 @@ export class TimelionDatasource {
         };
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
-            const regex = /(\\.\\w+\\((".*?"|.*?)*?\\))+/g;
+            const regex = /(\.\w+\((".*?"|.*?)*?\))+/g;
             return _.map(regex.exec(t).slice(1), e => {
                 return {sheet: e, interval: 'auto'};
             });
