@@ -122,13 +122,13 @@ export class TimelionDatasource {
                 "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
                 "interval": "auto",
                 "mode": "absolute",
-                "timezone":"GMT",
+                "timezone": "GMT",
                 "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
             }
         };
 
         const targets = _.flatten(_.map(options.targets, target => {
-            const target = oThis.templateSrv
+            target = oThis.templateSrv
                 .replace(target.target)
                 .replace(/\r\n|\r|\n/mg, "");
             const es_targets = _.map(target.split(".es(").slice(1), part => ".es(" + part);
