@@ -4,7 +4,6 @@ export class TimelionDatasource {
 
     constructor(instanceSettings, $q, backendSrv, templateSrv) {
         this.instanceSettings = instanceSettings;
-        this.esVersion = this.instanceSettings.esVersion || "5.3.2";
         this.type = instanceSettings.type;
         this.url = instanceSettings.url;
         this.name = instanceSettings.name;
@@ -15,7 +14,7 @@ export class TimelionDatasource {
         this.withCredentials = instanceSettings.withCredentials;
         this.headers = {
             'Content-Type': 'application/json',
-            'kbn-version': this.esVersion
+            'kbn-version': this.instanceSettings.esVersion || "5.3.2"
         };
         if (typeof instanceSettings.basicAuth === 'string' && instanceSettings.basicAuth.length > 0) {
             this.headers['Authorization'] = instanceSettings.basicAuth;
@@ -49,7 +48,7 @@ export class TimelionDatasource {
     }
 
     static readTimlionSeries(response) {
-        return _.flatten(_.map(response.data.sheet, sheet => sheet.list));
+        return _.flatten(_.map(response.data.sheet, s => s.list));
     }
 
     testDatasource() {
@@ -110,49 +109,35 @@ export class TimelionDatasource {
     }
 
     buildQueryParameters(options) {
-        const oThis = this;
-        //remove placeholder targets
+        //remove placeholder timelion_expressions
         options.targets = _.filter(options.targets, target => {
-            return target.target !== 'select metric' && !target.hide;
+            return target.timelion_exp !== 'select metric' && !target.hide;
         });
 
         const queryTpl = {
-            "sheet": null,
-            "time": {
-                "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
-                "interval": "auto",
-                "mode": "absolute",
-                "timezone": "GMT",
-                "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
+            sheet: null,
+            time: {
+                from: options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
+                interval: "auto",
+                mode: "absolute",
+                timezone: "GMT",
+                to: options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
             }
         };
 
-        const targets = _.flatten(_.map(options.targets, target => {
-            target = oThis.templateSrv
-                .replace(target.target)
-                .replace(/\r\n|\r|\n/mg, "");
-            const es_targets = _.map(target.split(".es(").slice(1), part => ".es(" + part);
-            return _.map(es_targets, es => {
-                const scale_interval = /.scale_interval\(([^)]*)\)/.exec(es);
-                let interval = es.interval || undefined;
-                if (scale_interval) {
-                    interval = scale_interval[1];
-                    es = es.replace(scale_interval[0], "");
-                }
-                return {target: es, interval: interval};
+        const timelion_expressions = _.flatten(_.map(options.targets, t => {
+            const regex = /(\\.\\w+\\((".*?"|.*?)*?\\))+/g;
+            return _.map(regex.exec(t).slice(1), e => {
+                return {sheet: e, interval: 'auto'};
             });
         }));
-        const intervalGroups = _.groupBy(targets, t => t.interval);
-        const intervals = Object.keys(intervalGroups);
-        const queries = _.map(intervals, key => ({
-            interval: key,
-            sheet: _.map(intervalGroups[key], target => target.target)
-        }));
-        options.queries = _.map(queries, q => {
-            queryTpl.sheet = q.sheet;
-            queryTpl.time.interval = !q.interval || q.interval === 'undefined' ? 'auto' : q.interval;
+
+        options.queries = _.map(timelion_expressions, e => {
+            queryTpl.sheet = e.sheet;
+            queryTpl.time.interval = e.interval;
             return _.cloneDeep(queryTpl);
         });
+
         return options;
     }
 }
