@@ -114,9 +114,6 @@ export class TimelionDatasource {
             return target.timelion_exp !== 'select metric' && !target.hide;
         });
 
-        options.range.from.utc();
-        options.range.to.utc();
-
         const queryTpl = {
             "sheet": null,
             "time": {
