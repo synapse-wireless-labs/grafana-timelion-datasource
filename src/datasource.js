@@ -117,10 +117,9 @@ export class TimelionDatasource {
         const queryTpl = {
             "sheet": null,
             "time": {
-                "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
-                "interval": "auto",
-                "mode": "absolute",
-                "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
+                "from": options.range.from.valueOf(),
+                "to": options.range.to.valueOf(),
+                "format": "epoch_millis"
             }
         };
 
