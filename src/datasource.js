@@ -149,7 +149,7 @@ export class TimelionDatasource {
         }));
 
         options.queries = _.map(timelion_expressions, e => {
-            queryTpl.sheet = e.sheet;
+            queryTpl.sheet = [e.sheet];
             queryTpl.time.interval = e.interval;
             return _.cloneDeep(queryTpl);
         });
