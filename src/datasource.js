@@ -126,9 +126,23 @@ export class TimelionDatasource {
         };
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
-            const regex = /(\.\w+\((".*?"|.*?)*?\))+/g;
-            const exps = regex.exec(t.timelion_exp);
-            return _.map(exps.slice(1), e => {
+            const regex = /(?:\.\w+\((?:\(.*?\)|\".*?\"|.*?)*?\))+/g;
+            const exps = [];
+            let m;
+
+            while ((m = regex.exec(str)) !== null) {
+                // This is necessary to avoid infinite loops with zero-width matches
+                if (m.index === regex.lastIndex) {
+                    regex.lastIndex++;
+                }
+
+                // The result can be accessed through the `m`-variable.
+                m.forEach((match, groupIndex) => {
+                    exps.append(match);
+                });
+            }
+
+            return _.map(exps, e => {
                 return {sheet: e, interval: 'auto'};
             });
         }));
