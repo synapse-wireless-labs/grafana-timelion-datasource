@@ -115,16 +115,15 @@ export class TimelionDatasource {
         });
 
         const queryTpl = {
-            sheet: null,
-            time: {
-                from: options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
-                interval: "auto",
-                mode: "absolute",
-                timezone: "GMT",
-                to: options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
+            "sheet": null,
+            "time": {
+                "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
+                "interval": "auto",
+                "mode": "absolute",
+                "timezone": "GMT",
+                "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
             }
         };
-
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
             const regex = /(?:\.\w+\((?:\(.*?\)|\".*?\"|.*?)*?\))+/g;
