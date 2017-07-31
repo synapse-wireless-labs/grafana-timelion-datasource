@@ -130,7 +130,7 @@ export class TimelionDatasource {
             const exps = [];
             let m;
 
-            while ((m = regex.exec(str)) !== null) {
+            while ((m = regex.exec(t.timelion_exp)) !== null) {
                 // This is necessary to avoid infinite loops with zero-width matches
                 if (m.index === regex.lastIndex) {
                     regex.lastIndex++;
