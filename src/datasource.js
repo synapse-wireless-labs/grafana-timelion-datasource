@@ -125,12 +125,14 @@ export class TimelionDatasource {
             }
         };
 
+
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
             const regex = /(?:\.\w+\((?:\(.*?\)|\".*?\"|.*?)*?\))+/g;
             const exps = [];
             let m;
 
-            while ((m = regex.exec(t.timelion_exp)) !== null) {
+            const queryInterpolated = this.templateSrv.replace(t.timelion_exp).replace(/\r\n|\r|\n/mg, "");
+            while ((m = regex.exec(queryInterpolated)) !== null) {
                 // This is necessary to avoid infinite loops with zero-width matches
                 if (m.index === regex.lastIndex) {
                     regex.lastIndex++;
