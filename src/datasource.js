@@ -138,7 +138,7 @@ export class TimelionDatasource {
 
                 // The result can be accessed through the `m`-variable.
                 m.forEach((match, groupIndex) => {
-                    exps.append(match);
+                    exps.push(match);
                 });
             }
 
