@@ -114,13 +114,16 @@ export class TimelionDatasource {
             return target.timelion_exp !== 'select metric' && !target.hide;
         });
 
+        options.range.from.utc();
+        options.range.to.utc();
+
         const queryTpl = {
             "sheet": null,
             "time": {
-                "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
+                "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss"),
                 "interval": options.interval,
                 "mode": "absolute",
-                "timezone": options.range.from.format("ZZ"),
+                "timezone": "GMT",
                 "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
             }
         };
