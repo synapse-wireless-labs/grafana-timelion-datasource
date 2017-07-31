@@ -117,7 +117,7 @@ export class TimelionDatasource {
         const queryTpl = {
             "sheet": null,
             "time": {
-                "timezone": options.range.format("ZZ"),
+                "timezone": options.range.from.format("ZZ"),
                 "from": options.range.from.utc().format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
                 "interval": options.interval,
                 "mode": "absolute",
