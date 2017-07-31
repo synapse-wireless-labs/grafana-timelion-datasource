@@ -120,7 +120,7 @@ export class TimelionDatasource {
                 "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
                 "interval": options.interval,
                 "mode": "absolute",
-                "timezone": "GMT",
+                "timezone": options.range.from.format("ZZ"),
                 "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
             }
         };
