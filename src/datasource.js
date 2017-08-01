@@ -119,7 +119,7 @@ export class TimelionDatasource {
             "time": {
                 "timezone": options.range.from.format("ZZ"),
                 "from": options.range.from.utc().format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
-                "interval": options.interval,
+                "interval": "auto",
                 "mode": "absolute",
                 "to": options.range.to.utc().format("YYYY-MM-DDTHH:mm:ss.SSSZ")
             }
@@ -148,7 +148,7 @@ export class TimelionDatasource {
 
         options.queries = _.map(timelion_expressions, e => {
             queryTpl.sheet = [e];
-            queryTpl.time.interval = options.interval;
+            queryTpl.time.interval = "auto";
             return _.cloneDeep(queryTpl);
         });
 
