@@ -119,7 +119,7 @@ export class TimelionDatasource {
             "time": {
                 "timezone": options.range.from.format("ZZ"),
                 "from": options.range.from.utc().format("YYYY-MM-DDTHH:mm:ss.SSSZ"),
-                "interval": "auto",
+                "interval": null,
                 "mode": "absolute",
                 "to": options.range.to.utc().format("YYYY-MM-DDTHH:mm:ss.SSSZ")
             }
@@ -137,12 +137,14 @@ export class TimelionDatasource {
                 }
 
                 m.forEach((match, groupIndex) => {
-                    const regExp = /(?:\.scale_interval\()([\w"]+)\)/;
-                    const scale_interval = regExp.exec(match);
-                    exps.push({
-                        match: match.replace(scale_interval[0] | "", ""),
-                        interval: scale_interval[1] | "auto"
-                    });
+                    const query = {match: match, interval: "auto"};
+
+                    const scale_interval = /(?:\.scale_interval\()([\w"]+)\)/.exec(match);
+                    if (scale_interval) {
+                        query.match = match.replace(scale_interval[0], "");
+                        query.interval = scale_interval[1] | "auto";
+                    }
+                    exps.push(query);
                 });
             }
 
