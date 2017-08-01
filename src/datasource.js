@@ -125,20 +125,12 @@ export class TimelionDatasource {
             }
         };
 
-
-        const timelion_format = function(value) {
-            if (typeof value === 'string') {
-                value = [value];
-            }
-            return '"' + value.join(' OR ') + '"';
-        };
-
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
             const tl_regex = /(?:\.\w+\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
             const query_list = [];
             let m;
 
-            const queryInterpolated = this.templateSrv.replace(t.timelion_exp, {}, timelion_format);
+            const queryInterpolated = this.templateSrv.replace(t.timelion_exp, {}, 'lucene');
             while ((m = tl_regex.exec(queryInterpolated)) !== null) {
                 if (m.index === tl_regex.lastIndex) {
                     tl_regex.lastIndex++;
