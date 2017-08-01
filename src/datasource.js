@@ -130,7 +130,7 @@ export class TimelionDatasource {
             if (typeof value === 'string') {
                 value = [value];
             }
-            return '\'' + value.join(' OR ') + '\'';
+            return '"' + value.join(' OR ') + '"';
         };
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
