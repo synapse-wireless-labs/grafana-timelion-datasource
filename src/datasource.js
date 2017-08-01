@@ -138,7 +138,7 @@ export class TimelionDatasource {
             const query_list = [];
             let m;
 
-            const queryInterpolated = this.templateSrv.replace(t.timelion_exp, timelion_format);
+            const queryInterpolated = this.templateSrv.replace(t.timelion_exp, {}, timelion_format);
             while ((m = tl_regex.exec(queryInterpolated)) !== null) {
                 if (m.index === tl_regex.lastIndex) {
                     tl_regex.lastIndex++;
