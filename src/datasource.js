@@ -126,20 +126,23 @@ export class TimelionDatasource {
         };
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
-            const regex = /(?:\.\w+\((?:\((?:\(.*?\)|\".*?\"|.*?)*?\)|\".*?\"|.*?)*?\))+/g;
+            const tl_regex = /(?:\.\w+\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
             const exps = [];
             let m;
 
-            const queryInterpolated = this.templateSrv.replace(t.timelion_exp).replace(/\r\n|\r|\n/mg, "");
-            while ((m = regex.exec(queryInterpolated)) !== null) {
-                // This is necessary to avoid infinite loops with zero-width matches
-                if (m.index === regex.lastIndex) {
-                    regex.lastIndex++;
+//            const queryInterpolated = this.templateSrv.replace(t.timelion_exp).replace(/\r\n|\r|\n/mg, "");
+            while ((m = tl_regex.exec(t.timelion_exp)) !== null) {
+                if (m.index === tl_regex.lastIndex) {
+                    tl_regex.lastIndex++;
                 }
 
-                // The result can be accessed through the `m`-variable.
                 m.forEach((match, groupIndex) => {
-                    exps.push(match);
+                    const regExp = /(?:\.scale_interval\()([\w"]+)\)/;
+                    const scale_interval = regExp.exec(match);
+                    exps.push({
+                        match: match.replace(scale_interval[0] | "", ""),
+                        interval: scale_interval[1] | "auto"
+                    });
                 });
             }
 
@@ -147,8 +150,8 @@ export class TimelionDatasource {
         }));
 
         options.queries = _.map(timelion_expressions, e => {
-            queryTpl.sheet = [e];
-            queryTpl.time.interval = "auto";
+            queryTpl.sheet = [e.match];
+            queryTpl.time.interval = e.interval;
             return _.cloneDeep(queryTpl);
         });
 
