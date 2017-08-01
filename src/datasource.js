@@ -127,7 +127,7 @@ export class TimelionDatasource {
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
             const tl_regex = /(?:\.\w+\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
-            const exps = [];
+            const query_list = [];
             let m;
 
 //            const queryInterpolated = this.templateSrv.replace(t.timelion_exp).replace(/\r\n|\r|\n/mg, "");
@@ -142,18 +142,18 @@ export class TimelionDatasource {
                     const scale_interval = /(?:\.scale_interval\()([\w"]+)\)/.exec(match);
                     if (scale_interval) {
                         query.match = match.replace(scale_interval[0], "");
-                        query.interval = scale_interval[1] | "auto";
+                        query.interval = scale_interval[1];
                     }
-                    exps.push(query);
+                    query_list.push(query);
                 });
             }
 
-            return exps;
+            return query_list;
         }));
 
-        options.queries = _.map(timelion_expressions, e => {
-            queryTpl.sheet = [e.match];
-            queryTpl.time.interval = e.interval;
+        options.queries = _.map(timelion_expressions, q => {
+            queryTpl.sheet = [q.match];
+            queryTpl.time.interval = q.interval;
             return _.cloneDeep(queryTpl);
         });
 
