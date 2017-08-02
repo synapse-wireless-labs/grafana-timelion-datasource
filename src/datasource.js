@@ -126,7 +126,7 @@ export class TimelionDatasource {
         };
 
         const timelion_expressions = _.flatten(_.map(options.targets, t => {
-            const tl_regex = /(?:\.\w+\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
+            const tl_regex = /(?:\.\w+\((?:\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
             const query_list = [];
             let m;
 
