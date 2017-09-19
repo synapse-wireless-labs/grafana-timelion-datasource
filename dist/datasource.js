@@ -1,6 +1,6 @@
-"use strict";
+'use strict';
 
-System.register(["lodash"], function (_export, _context) {
+System.register(['lodash'], function (_export, _context) {
   "use strict";
 
   var _, _createClass, TimelionDatasource;
@@ -34,31 +34,37 @@ System.register(["lodash"], function (_export, _context) {
         };
       }();
 
-      _export("TimelionDatasource", TimelionDatasource = function () {
+      _export('TimelionDatasource', TimelionDatasource = function () {
         function TimelionDatasource(instanceSettings, $q, backendSrv, templateSrv) {
           _classCallCheck(this, TimelionDatasource);
 
           this.instanceSettings = instanceSettings;
-          this.esVersion = this.instanceSettings.esVersion || "5.3.0";
           this.type = instanceSettings.type;
           this.url = instanceSettings.url;
           this.name = instanceSettings.name;
           this.q = $q;
           this.backendSrv = backendSrv;
           this.templateSrv = templateSrv;
+
+          this.withCredentials = instanceSettings.withCredentials;
+          this.headers = {
+            'Content-Type': 'application/json',
+            'kbn-version': this.instanceSettings.esVersion || '5.3.2'
+          };
+          if (typeof instanceSettings.basicAuth === 'string' && instanceSettings.basicAuth.length > 0) {
+            this.headers['Authorization'] = instanceSettings.basicAuth;
+          }
         }
 
         _createClass(TimelionDatasource, [{
-          key: "request",
+          key: 'request',
           value: function request(options) {
-            options.headers = {
-              "kbn-version": this.esVersion,
-              "Content-Type": "application/json;charset=UTF-8"
-            };
+            options.withCredentials = this.withCredentials;
+            options.headers = this.headers;
             return this.backendSrv.datasourceRequest(options);
           }
         }, {
-          key: "query",
+          key: 'query',
           value: function query(options) {
             var _this = this;
 
@@ -73,10 +79,10 @@ System.register(["lodash"], function (_export, _context) {
                 data: query,
                 method: 'POST'
               }).then(function (response) {
-                return TimelionDatasource.readTimlionSeries(response).map(function (list, ix) {
+                return TimelionDatasource.readTimelionSeries(response).map(function (list, ix) {
                   return {
-                    "target": list.label,
-                    "datapoints": _.map(list.data, function (d) {
+                    target: list.label,
+                    datapoints: _.map(list.data, function (d) {
                       return [d[1], d[0]];
                     })
                   };
@@ -84,30 +90,24 @@ System.register(["lodash"], function (_export, _context) {
               });
             });
             return this.q.all(reqs).then(function (series) {
-              return { "data": _.flatten(series) };
+              return { data: _.flatten(series) };
             });
           }
         }, {
-          key: "readTimlionSeries",
-          value: function readTimlionSeries(response) {
-            return _.flatten(_.map(response.data.sheet, function (sheet) {
-              return sheet.list;
-            }));
-          }
-        }, {
-          key: "testDatasource",
+          key: 'testDatasource',
           value: function testDatasource() {
-            return this.backendSrv.datasourceRequest({
+            return this.request({
               url: this.url + '/run',
-              method: 'GET'
+              data: { time: { from: 'now-1s', to: 'now', interval: '1s' } },
+              method: 'POST'
             }).then(function (response) {
-              if (response.status === 400) {
-                return { status: "success", message: "Data source is working", title: "Success" };
+              if (response.status === 200) {
+                return { status: 'success', message: 'Data source is working', title: 'Success' };
               }
             });
           }
         }, {
-          key: "annotationQuery",
+          key: 'annotationQuery',
           value: function annotationQuery(options) {
             var query = this.templateSrv.replace(options.annotation.query, {}, 'glob');
             var annotationQuery = {
@@ -131,19 +131,19 @@ System.register(["lodash"], function (_export, _context) {
             });
           }
         }, {
-          key: "metricFindQuery",
+          key: 'metricFindQuery',
           value: function metricFindQuery(query) {
             var interpolated = {
               target: this.templateSrv.replace(query, null, 'regex')
             };
 
             return this.backendSrv.datasourceRequest({
-              url: "https://raw.githubusercontent.com/elastic/timelion/master/FUNCTIONS.md",
+              url: 'https://raw.githubusercontent.com/elastic/timelion/master/FUNCTIONS.md',
               method: 'GET'
             }).then(this.parseTimelionFunctions);
           }
         }, {
-          key: "mapToTextValue",
+          key: 'mapToTextValue',
           value: function mapToTextValue(result) {
             return _.map(result.data, function (d, i) {
               if (d && d.text && d.value) {
@@ -155,64 +155,73 @@ System.register(["lodash"], function (_export, _context) {
             });
           }
         }, {
-          key: "buildQueryParameters",
+          key: 'buildQueryParameters',
           value: function buildQueryParameters(options) {
-            var oThis = this;
-            //remove placeholder targets
+            var _this2 = this;
+
+            //remove placeholder timelion_expressions
             options.targets = _.filter(options.targets, function (target) {
-              return target.target !== 'select metric' && !target.hide;
+              return target.timelion_exp !== 'select metric' && !target.hide;
             });
 
-            var queryTpl = { "sheet": null,
-              "time": {
-                "from": options.range.from.format("YYYY-MM-DDTHH:mm:ss ZZ"),
-                "interval": "auto",
-                "mode": "absolute",
-                "timezone": "GMT",
-                "to": options.range.to.format("YYYY-MM-DDTHH:mm:ss ZZ")
+            var queryTpl = {
+              sheet: null,
+              time: {
+                timezone: options.range.from.format('ZZ'),
+                from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+                interval: null,
+                mode: 'absolute',
+                to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ')
               }
             };
 
-            var targets = _.flatten(_.map(options.targets, function (target) {
-              var target = oThis.templateSrv.replace(target.target).replace(/\r\n|\r|\n/mg, "");
-              var targets = _.map(target.split(".es(").slice(1), function (part) {
-                return ".es(" + part;
-              });
-              return _.map(targets, function (target) {
-                var scale_interval = /.scale_interval\(([^\)]*)\)/.exec(target);
-                var interval = target.interval || undefined;
-                if (scale_interval) {
-                  interval = scale_interval[1];
-                  target = target.replace(scale_interval[0], "");
+            var timelion_expressions = _.flatten(_.map(options.targets, function (t) {
+              var tl_regex = /(?:\.\w+\((?:\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
+              var query_list = [];
+              var m = void 0;
+
+              var queryInterpolated = _this2.templateSrv.replace(t.timelion_exp, options.scopedVars, 'lucene');
+              while ((m = tl_regex.exec(queryInterpolated)) !== null) {
+                if (m.index === tl_regex.lastIndex) {
+                  tl_regex.lastIndex++;
                 }
-                return { target: target, interval: interval };
-              });
+
+                m.forEach(function (match, groupIndex) {
+                  var query = { match: match, interval: 'auto' };
+
+                  var scale_interval = /(?:\.scale_interval\()([\w"]+)\)/.exec(match);
+                  if (scale_interval) {
+                    query.match = match.replace(scale_interval[0], '');
+                    query.interval = scale_interval[1];
+                  }
+                  query_list.push(query);
+                });
+              }
+
+              return query_list;
             }));
-            var intervalGroups = _.groupBy(targets, function (t) {
-              return t.interval;
-            });
-            var intervals = Object.keys(intervalGroups);
-            var queries = _.map(intervals, function (key) {
-              return {
-                interval: key,
-                sheet: _.map(intervalGroups[key], function (target) {
-                  return target.target;
-                })
-              };
-            });
-            options.queries = _.map(queries, function (q) {
-              queryTpl.sheet = q.sheet;
-              queryTpl.time.interval = !q.interval || q.interval === 'undefined' ? 'auto' : q.interval;
+
+            options.queries = _.map(timelion_expressions, function (q) {
+              queryTpl.sheet = [q.match];
+              queryTpl.time.interval = q.interval;
               return _.cloneDeep(queryTpl);
             });
+
             return options;
+          }
+        }], [{
+          key: 'readTimelionSeries',
+          value: function readTimelionSeries(response) {
+            return _.flatten(_.map(response.data.sheet, function (s) {
+              return s.list;
+            }));
           }
         }]);
 
         return TimelionDatasource;
       }());
 
-      _export("TimelionDatasource", TimelionDatasource);
+      _export('TimelionDatasource', TimelionDatasource);
     }
   };
 });
