@@ -3,9 +3,8 @@ import {
   DataQueryResponse,
   DataSourceApi,
   DataSourceInstanceSettings,
-  FieldType,
-  MutableDataFrame,
   ScopedVars,
+  toDataFrame,
 } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaultQuery, TimeLionDataSourceOptions, TimeLionQuery } from './types';
@@ -105,18 +104,11 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
               rsp.data.sheet
                 .map(sheet => sheet.list)
                 .reduce((acc, cur) => acc.concat(cur), [])
-                .map(list => {
-                  const frame = new MutableDataFrame({
-                    refId: t.refId,
-                    fields: [
-                      { name: 'time', type: FieldType.time },
-                      { name: 'value', type: FieldType.number },
-                    ],
-                  });
-
-                  frame.appendRow(list.data.map(d => ({ time: d[1], value: d[0] })));
-                  return frame;
-                })
+                .map(list =>
+                  toDataFrame({
+                    datapoints: list.data.map(d => [d[1], d[0]]),
+                  })
+                )
             )
             .reduce((acc, cur) => acc.concat(cur), []);
         })
