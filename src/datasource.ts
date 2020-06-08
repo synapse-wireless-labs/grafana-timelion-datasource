@@ -3,11 +3,42 @@ import {
   DataQueryResponse,
   DataSourceApi,
   DataSourceInstanceSettings,
+  FieldType,
+  MutableDataFrame,
   ScopedVars,
 } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaultQuery, TimeLionDataSourceOptions, TimeLionQuery } from './types';
 import XRegExp from 'xregexp';
+
+interface BackendSrvResponse<T = any> {
+  data: T;
+  status: number;
+}
+
+interface TimelionQueryResponse {
+  sheet: TimelionQuerySheet[];
+  stats: {
+    cacheCount: number;
+    invokeTime: number;
+    queryCount: number;
+    queryTime: number;
+    sheetTime: number;
+  };
+}
+
+interface TimelionQuerySheet {
+  list: TimelionQueryList[];
+  type: string;
+}
+
+interface TimelionQueryList {
+  data: Array<[number, number]>;
+  fit: string;
+  label: string;
+  split: string;
+  type: string;
+}
 
 export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDataSourceOptions> {
   basicAuth: string;
@@ -21,7 +52,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     this.url = instanceSettings.url!;
   }
 
-  private timelionPost(data: any) {
+  private async timelionPost(data: any): Promise<BackendSrvResponse<TimelionQueryResponse>> {
     const options: any = {
       url: this.url + '/run',
       method: 'POST',
@@ -46,37 +77,53 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
   }
 
   async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
-    const queries = options.targets
-      .filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide)
-      .map(t => getTemplateSrv().replace(t.queryText, options.scopedVars, 'lucene'))
-      .map(str => this.divideTimeLionQueries(str))
-      .reduce((acc, cur) => acc.concat(cur), []);
+    const frames = await Promise.all(
+      options.targets
+        .filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide)
+        .map(async t => {
+          const interpolated = getTemplateSrv().replace(t.queryText, options.scopedVars, 'lucene');
 
-    const responses = await Promise.all(
-      queries.map(async q =>
-        this.timelionPost({
-          sheet: [q],
-          time: {
-            timezone: options.range.from.format('ZZ'),
-            from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-            interval: 'auto',
-            mode: 'absolute',
-            to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-          },
+          const tlQueries = this.divideTimeLionQueries(interpolated);
+
+          const tlResponses = await Promise.all(
+            tlQueries.map(q =>
+              this.timelionPost({
+                sheet: [q],
+                time: {
+                  timezone: options.range.from.format('ZZ'),
+                  from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+                  interval: 'auto',
+                  mode: 'absolute',
+                  to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+                },
+              })
+            )
+          );
+
+          return tlResponses
+            .map(rsp =>
+              rsp.data.sheet
+                .map(sheet => sheet.list)
+                .reduce((acc, cur) => acc.concat(cur), [])
+                .map(list => {
+                  const frame = new MutableDataFrame({
+                    refId: t.refId,
+                    fields: [
+                      { name: 'time', type: FieldType.time },
+                      { name: 'value', type: FieldType.number },
+                    ],
+                  });
+
+                  frame.appendRow(list.data.map(d => ({ time: d[1], value: d[0] })));
+                  return frame;
+                })
+            )
+            .reduce((acc, cur) => acc.concat(cur), []);
         })
-      )
     );
 
     return {
-      data: responses.map(rsp =>
-        rsp.data.sheet
-          .map((sheet: any) => sheet.list)
-          .reduce((acc: any[], cur: any) => acc.concat(cur), [])
-          .map((list: any) => ({
-            target: list.label,
-            datapoints: list.data.map((d: [any, any]) => [d[1], d[0]]),
-          }))
-      ),
+      data: frames.reduce((acc, cur) => acc.concat(cur), []),
     };
   }
 
