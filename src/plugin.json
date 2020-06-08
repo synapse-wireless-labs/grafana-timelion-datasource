@@ -1,5 +1,5 @@
 {
-  "name": "Grafana Timelion Datasource",
+  "name": "Timelion",
   "id": "grafana-timelion-datasource",
   "type": "datasource",
   "metrics": true,
