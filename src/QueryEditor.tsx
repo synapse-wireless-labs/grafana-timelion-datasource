@@ -24,6 +24,7 @@ export class QueryEditor extends PureComponent<Props> {
       <div className="gf-form">
         <FormField
           labelWidth={8}
+          inputWidth={32}
           value={queryText || ''}
           onChange={this.onQueryTextChange}
           label="Query Text"

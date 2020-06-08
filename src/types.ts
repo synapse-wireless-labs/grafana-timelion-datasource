@@ -8,4 +8,6 @@ export const defaultQuery: Partial<TimeLionQuery> = {
   queryText: '.es()',
 };
 
-export interface TimeLionDataSourceOptions extends DataSourceJsonData {}
+export interface TimeLionDataSourceOptions extends DataSourceJsonData {
+  kibanaVersion: string;
+}

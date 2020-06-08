@@ -43,12 +43,14 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
   basicAuth: string;
   withCredentials: boolean;
   url: string;
+  kibanaVersion: string;
 
   constructor(instanceSettings: DataSourceInstanceSettings<TimeLionDataSourceOptions>) {
     super(instanceSettings);
     this.basicAuth = instanceSettings.basicAuth!;
     this.withCredentials = instanceSettings.withCredentials!;
     this.url = instanceSettings.url!;
+    this.kibanaVersion = instanceSettings.jsonData.kibanaVersion;
   }
 
   private async timelionPost(data: any): Promise<BackendSrvResponse<TimelionQueryResponse>> {
@@ -60,7 +62,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
 
     options.headers = {
       'Content-Type': 'application/json',
-      'kbn-version': '6.7.0',
+      'kbn-version': this.kibanaVersion,
       ...(this.basicAuth
         ? {
             Authorization: this.basicAuth,
