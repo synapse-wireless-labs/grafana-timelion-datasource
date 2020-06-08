@@ -28,13 +28,18 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
       data: data,
     };
 
+    options.headers = {
+      'Content-Type': 'application/json',
+      'kbn-version': '5.3.2',
+      ...(this.basicAuth
+        ? {
+            Authorization: this.basicAuth,
+          }
+        : {}),
+    };
+
     if (this.basicAuth || this.withCredentials) {
       options.withCredentials = true;
-    }
-    if (this.basicAuth) {
-      options.headers = {
-        Authorization: this.basicAuth,
-      };
     }
 
     return getBackendSrv().datasourceRequest(options);
