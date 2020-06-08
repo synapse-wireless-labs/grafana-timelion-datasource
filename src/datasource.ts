@@ -30,7 +30,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
 
     options.headers = {
       'Content-Type': 'application/json',
-      'kbn-version': '5.3.2',
+      'kbn-version': '6.8.0',
       ...(this.basicAuth
         ? {
             Authorization: this.basicAuth,
