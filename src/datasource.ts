@@ -58,14 +58,16 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
 
   async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
     const filterdTargets = options.targets.filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide);
-    const interpolated = this.interpolateVariablesInQueries(filterdTargets, options.scopedVars);
-    const targetResults = await Promise.all(interpolated.map(tgt => this.runQuery(tgt, options)));
 
-    return { data: targetResults.reduce((acc, cur) => acc.concat(cur), []) };
+    const targetResults = await Promise.all(
+      this.interpolateVariablesInQueries(filterdTargets, options.scopedVars).map(tgt => this.runQuery(tgt, options))
+    );
+
+    return { data: targetResults };
   }
 
-  async runQuery(query: TimeLionQuery, options: DataQueryRequest<TimeLionQuery>): Promise<DataFrame[]> {
-    return await this.post({
+  async runQuery(query: TimeLionQuery, options: DataQueryRequest<TimeLionQuery>): Promise<DataFrame> {
+    return this.post({
       sheet: [query.queryText],
       time: {
         timezone: options.range.from.format('ZZ'),
@@ -74,7 +76,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
         mode: 'absolute',
         to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
       },
-    }).then(rsp => rsp.data.sheet[0].list.map(list => this.toTimeLionDataFrame(query, list)));
+    }).then(rsp => this.toTimeLionDataFrame(query, rsp.data.sheet[0].list[0]));
   }
 
   toTimeLionDataFrame(query: TimeLionQuery, list: TimelionQueryList): DataFrame {
