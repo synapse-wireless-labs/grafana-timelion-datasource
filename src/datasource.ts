@@ -1,10 +1,14 @@
 import {
+  ArrayVector,
+  DataFrame,
   DataQueryRequest,
   DataQueryResponse,
   DataSourceApi,
   DataSourceInstanceSettings,
+  Field,
+  FieldType,
   ScopedVars,
-  toDataFrame,
+  TimeSeriesValue,
 } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaultQuery, TimeLionDataSourceOptions, TimeLionQuery } from './types';
@@ -53,7 +57,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     this.kibanaVersion = instanceSettings.jsonData.kibanaVersion;
   }
 
-  private async timelionPost(data: any): Promise<BackendSrvResponse<TimelionQueryResponse>> {
+  private async post(data: any): Promise<BackendSrvResponse<TimelionQueryResponse>> {
     const options: any = {
       url: this.url + '/run',
       method: 'POST',
@@ -77,51 +81,64 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     return getBackendSrv().datasourceRequest(options);
   }
 
-  async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
-    const frames = await Promise.all(
-      options.targets
-        .filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide)
-        .map(async t => {
-          const interpolated = getTemplateSrv().replace(t.queryText, options.scopedVars, 'lucene');
-
-          const tlQueries = this.divideTimeLionQueries(interpolated);
-
-          const tlResponses = await Promise.all(
-            tlQueries.map(q =>
-              this.timelionPost({
-                sheet: [q],
-                time: {
-                  timezone: options.range.from.format('ZZ'),
-                  from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-                  interval: 'auto',
-                  mode: 'absolute',
-                  to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-                },
-              })
-            )
-          );
-
-          return tlResponses
-            .map(rsp =>
-              rsp.data.sheet
-                .map(sheet => sheet.list)
-                .reduce((acc, cur) => acc.concat(cur), [])
-                .map(list =>
-                  toDataFrame({
-                    datapoints: list.data.map(d => [d[1], d[0]]),
-                  })
-                )
-            )
-            .reduce((acc, cur) => acc.concat(cur), []);
-        })
-    );
+  toTimeLionDataFrame(query: TimeLionQuery, list: TimelionQueryList): DataFrame {
+    const timeField: Field<number, ArrayVector> = {
+      name: 'Time',
+      type: FieldType.time,
+      config: {},
+      values: new ArrayVector<number>(),
+    };
+    const valueField: Field<TimeSeriesValue, ArrayVector> = {
+      name: list.label || 'Value',
+      type: FieldType.number,
+      config: {},
+      values: new ArrayVector<TimeSeriesValue>(),
+    };
 
     return {
-      data: frames.reduce((acc, cur) => acc.concat(cur), []),
+      refId: query.refId,
+      name: list.label,
+      fields: list.data.reduce(
+        (fields, cur) => {
+          fields[0].values.add(cur[1]);
+          fields[1].values.add(cur[0]);
+          return fields;
+        },
+        [timeField, valueField]
+      ),
+      length: list.data.length,
     };
   }
 
-  divideTimeLionQueries(str: string): string[] {
+  async queryTarget(query: TimeLionQuery, options: DataQueryRequest<TimeLionQuery>): Promise<DataFrame[]> {
+    return await Promise.all(
+      this.divideTimeLionOperations(query).map(sheet =>
+        this.post({
+          sheet: [sheet],
+          time: {
+            timezone: options.range.from.format('ZZ'),
+            from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+            interval: options.interval,
+            mode: 'absolute',
+            to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+          },
+        }).then(rsp => rsp.data.sheet[0].list.map(list => this.toTimeLionDataFrame(query, list)))
+      )
+    ).then(frames => frames.reduce((acc, cur) => acc.concat(cur), []));
+  }
+
+  async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
+    const filterdTargets = options.targets.filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide);
+    const interpolated = this.interpolateVariablesInQueries(filterdTargets, options.scopedVars);
+
+    const data = await Promise.all(interpolated.map(tgt => this.queryTarget(tgt, options))).then(frames =>
+      frames.reduce((acc, cur) => acc.concat(cur), [])
+    );
+
+    return { data };
+  }
+
+  divideTimeLionOperations(query: TimeLionQuery): string[] {
     // (?                # Timelion operation
     //   \.\w+             # Starts with .word
     //     \(                # Argument list
@@ -147,19 +164,19 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     //     \)                # End of argument list
     // )+
     const regex = /(?:\.\w+\((?:\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
-    return XRegExp.match(str, regex, 'all');
+    return XRegExp.match(query.queryText, regex, 'all');
   }
 
   interpolateVariablesInQueries(queries: TimeLionQuery[], scopedVars: ScopedVars): TimeLionQuery[] {
     return queries.map(query => ({
       ...query,
       datasource: this.name,
-      query: getTemplateSrv().replace(query.queryText, scopedVars, 'lucene'),
+      queryText: getTemplateSrv().replace(query.queryText, scopedVars, 'lucene'),
     }));
   }
 
   async testDatasource() {
-    const rsp = await this.timelionPost({ time: { from: 'now-1s', to: 'now', interval: '1s' } });
+    const rsp = await this.post({ time: { from: 'now-1s', to: 'now', interval: '1s' } });
 
     if (rsp.status === 200) {
       return { status: 'success', message: 'Data source is working', title: 'Success' };
