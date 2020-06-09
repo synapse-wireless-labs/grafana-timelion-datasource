@@ -12,7 +12,6 @@ import {
 } from '@grafana/data';
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
 import { defaultQuery, TimeLionDataSourceOptions, TimeLionQuery } from './types';
-import XRegExp from 'xregexp';
 
 interface BackendSrvResponse<T = any> {
   data: T;
@@ -57,28 +56,25 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     this.kibanaVersion = instanceSettings.jsonData.kibanaVersion;
   }
 
-  private async post(data: any): Promise<BackendSrvResponse<TimelionQueryResponse>> {
-    const options: any = {
-      url: this.url + '/run',
-      method: 'POST',
-      data: data,
-    };
+  async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
+    const filterdTargets = options.targets.filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide);
+    const interpolated = this.interpolateVariablesInQueries(filterdTargets, options.scopedVars);
+    const targetResults = await Promise.all(interpolated.map(tgt => this.runQuery(tgt, options)));
 
-    options.headers = {
-      'Content-Type': 'application/json',
-      'kbn-version': this.kibanaVersion,
-      ...(this.basicAuth
-        ? {
-            Authorization: this.basicAuth,
-          }
-        : {}),
-    };
+    return { data: targetResults.reduce((acc, cur) => acc.concat(cur), []) };
+  }
 
-    if (this.basicAuth || this.withCredentials) {
-      options.withCredentials = true;
-    }
-
-    return getBackendSrv().datasourceRequest(options);
+  async runQuery(query: TimeLionQuery, options: DataQueryRequest<TimeLionQuery>): Promise<DataFrame[]> {
+    return await this.post({
+      sheet: [query.queryText],
+      time: {
+        timezone: options.range.from.format('ZZ'),
+        from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+        interval: options.interval,
+        mode: 'absolute',
+        to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
+      },
+    }).then(rsp => rsp.data.sheet[0].list.map(list => this.toTimeLionDataFrame(query, list)));
   }
 
   toTimeLionDataFrame(query: TimeLionQuery, list: TimelionQueryList): DataFrame {
@@ -110,63 +106,6 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     };
   }
 
-  async queryTarget(query: TimeLionQuery, options: DataQueryRequest<TimeLionQuery>): Promise<DataFrame[]> {
-    return await Promise.all(
-      this.divideTimeLionOperations(query).map(sheet =>
-        this.post({
-          sheet: [sheet],
-          time: {
-            timezone: options.range.from.format('ZZ'),
-            from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-            interval: options.interval,
-            mode: 'absolute',
-            to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-          },
-        }).then(rsp => rsp.data.sheet[0].list.map(list => this.toTimeLionDataFrame(query, list)))
-      )
-    ).then(frames => frames.reduce((acc, cur) => acc.concat(cur), []));
-  }
-
-  async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
-    const filterdTargets = options.targets.filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide);
-    const interpolated = this.interpolateVariablesInQueries(filterdTargets, options.scopedVars);
-
-    const data = await Promise.all(interpolated.map(tgt => this.queryTarget(tgt, options))).then(frames =>
-      frames.reduce((acc, cur) => acc.concat(cur), [])
-    );
-
-    return { data };
-  }
-
-  divideTimeLionOperations(query: TimeLionQuery): string[] {
-    // (?                # Timelion operation
-    //   \.\w+             # Starts with .word
-    //     \(                # Argument list
-    //       (?:               # Possible operation contents
-    //         \(                # 1. Argument list
-    //           (?:                  # Possible operation contents
-    //             \(                   # 1. Argument list
-    //               (?:                     # Possible contents
-    //                 \(                      # 1. Argument list
-    //                   .*?                     Zero or more characters (lazy)
-    //                 \) |                    # End of argument list - OR
-    //                 ".*?"   |               # 2. Something in quotes (lazy) OR
-    //                 .*?                     # 3. Zero or more characters (lazy)
-    //               )*?                     # Zero or more (lazy)
-    //             \)        |          # End of argument list - OR
-    //             ".*?"     |          # 2. Something in quotes (lazy) OR
-    //             .*?                  # 3. Zero or more characters (lazy)
-    //           )*?                  # Zero or more (lazy)
-    //         \)          |     # End of argument list - OR
-    //         ".*?"       |     # 2. Something in quotes (lazy) OR
-    //         .*?               # 3. Zero or more characters (lazy)
-    //       )*?               # Zero or more (lazy)
-    //     \)                # End of argument list
-    // )+
-    const regex = /(?:\.\w+\((?:\((?:\((?:\(.*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\)|".*?"|.*?)*?\))+/g;
-    return XRegExp.match(query.queryText, regex, 'all');
-  }
-
   interpolateVariablesInQueries(queries: TimeLionQuery[], scopedVars: ScopedVars): TimeLionQuery[] {
     return queries.map(query => ({
       ...query,
@@ -183,5 +122,29 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     } else {
       return { status: 'error', message: 'Data source is not working', title: 'Error' };
     }
+  }
+
+  private async post(data: any): Promise<BackendSrvResponse<TimelionQueryResponse>> {
+    const options: any = {
+      url: this.url + '/run',
+      method: 'POST',
+      data: data,
+    };
+
+    options.headers = {
+      'Content-Type': 'application/json',
+      'kbn-version': this.kibanaVersion,
+      ...(this.basicAuth
+        ? {
+            Authorization: this.basicAuth,
+          }
+        : {}),
+    };
+
+    if (this.basicAuth || this.withCredentials) {
+      options.withCredentials = true;
+    }
+
+    return getBackendSrv().datasourceRequest(options);
   }
 }
