@@ -98,8 +98,8 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
       name: list.label,
       fields: list.data.reduce(
         (fields, cur) => {
-          fields[0].values.add(cur[1]);
-          fields[1].values.add(cur[0]);
+          fields[0].values.add(cur[0]);
+          fields[1].values.add(cur[1]);
           return fields;
         },
         [timeField, valueField]
