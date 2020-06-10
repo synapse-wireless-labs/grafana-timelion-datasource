@@ -31,6 +31,7 @@ export const QueryEditor = (props: Props) => {
           <textarea
             className="gf-form-input gf-form-textarea"
             placeholder=".es()"
+            spellCheck={false}
             onChange={onTargetChange}
             onBlur={onRunQuery}
             rows={query.target.split(/\r\n|\r|\n/).length}
@@ -47,6 +48,7 @@ export const QueryEditor = (props: Props) => {
             type="text"
             className="gf-form-input"
             placeholder="custom interval"
+            spellCheck={false}
             value={query.interval}
             onChange={onIntervalChange}
             onBlur={onRunQuery}
