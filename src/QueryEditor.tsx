@@ -31,15 +31,16 @@ export const QueryEditor = (props: Props) => {
           <textarea
             className="gf-form-input gf-form-textarea"
             placeholder=".es()"
-            value={query.target}
             onChange={onTargetChange}
             onBlur={onRunQuery}
-          ></textarea>
+          >
+            {query.target}
+          </textarea>
         </div>
       </div>
 
       <div className="gf-form-inline">
-        <div className="gf-form gf-form--grow">
+        <div className="gf-form">
           <label className="gf-form-label width-7">Interval</label>
           <input
             type="text"
