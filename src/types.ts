@@ -1,13 +1,14 @@
 import { DataQuery, DataSourceJsonData } from '@grafana/data';
 
 export interface TimeLionQuery extends DataQuery {
-  queryText: string;
+  interval?: string;
+  target: string;
 }
 
 export const defaultQuery: Partial<TimeLionQuery> = {
-  queryText: '.es()',
+  target: '.es()',
 };
 
 export interface TimeLionDataSourceOptions extends DataSourceJsonData {
-  kibanaVersion: string;
+  esVersion: string;
 }

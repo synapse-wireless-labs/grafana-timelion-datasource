@@ -46,33 +46,31 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
   basicAuth: string;
   withCredentials: boolean;
   url: string;
-  kibanaVersion: string;
+  esVersion: string;
 
   constructor(instanceSettings: DataSourceInstanceSettings<TimeLionDataSourceOptions>) {
     super(instanceSettings);
     this.basicAuth = instanceSettings.basicAuth!;
     this.withCredentials = instanceSettings.withCredentials!;
     this.url = instanceSettings.url!;
-    this.kibanaVersion = instanceSettings.jsonData.kibanaVersion;
+    this.esVersion = instanceSettings.jsonData.esVersion;
   }
 
   async query(options: DataQueryRequest<TimeLionQuery>): Promise<DataQueryResponse> {
-    const filterdTargets = options.targets.filter(tgt => tgt.queryText !== defaultQuery.queryText && !tgt.hide);
+    const filterdTargets = options.targets.filter(tgt => tgt.target !== defaultQuery.target && !tgt.hide);
 
-    const targetResults = await Promise.all(
-      this.interpolateVariablesInQueries(filterdTargets, options.scopedVars).map(tgt => this.runQuery(tgt, options))
-    );
+    const targetResults = await Promise.all(filterdTargets.map(tgt => this.runQuery(tgt, options)));
 
     return { data: targetResults };
   }
 
   async runQuery(query: TimeLionQuery, options: DataQueryRequest<TimeLionQuery>): Promise<DataFrame> {
     return this.post({
-      sheet: [query.queryText],
+      sheet: [getTemplateSrv().replace(query.target, options.scopedVars, 'lucene')],
       time: {
         timezone: options.range.from.format('ZZ'),
         from: options.range.from.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
-        interval: options.interval,
+        interval: query.interval || options.interval,
         mode: 'absolute',
         to: options.range.to.utc().format('YYYY-MM-DDTHH:mm:ss.SSSZ'),
       },
@@ -112,7 +110,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
     return queries.map(query => ({
       ...query,
       datasource: this.name,
-      queryText: getTemplateSrv().replace(query.queryText, scopedVars, 'lucene'),
+      target: getTemplateSrv().replace(query.target, scopedVars, 'lucene'),
     }));
   }
 
@@ -135,7 +133,7 @@ export class TimeLionDataSource extends DataSourceApi<TimeLionQuery, TimeLionDat
 
     options.headers = {
       'Content-Type': 'application/json',
-      'kbn-version': this.kibanaVersion,
+      'kbn-version': this.esVersion,
       ...(this.basicAuth
         ? {
             Authorization: this.basicAuth,

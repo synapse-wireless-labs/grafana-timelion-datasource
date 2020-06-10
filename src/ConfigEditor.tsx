@@ -25,12 +25,12 @@ export const ConfigEditor = (props: Props) => {
     });
   };
 
-  const onKibanaVersionChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const onESVersionChange = (event: ChangeEvent<HTMLInputElement>) => {
     onOptionsChange({
       ...options,
       jsonData: {
         ...options.jsonData,
-        kibanaVersion: event.target.value,
+        esVersion: event.target.value,
       },
     });
   };
@@ -53,8 +53,8 @@ export const ConfigEditor = (props: Props) => {
               labelWidth={10}
               inputWidth={15}
               label="Kibana Version"
-              value={options.jsonData.kibanaVersion || ''}
-              onChange={onKibanaVersionChange}
+              value={options.jsonData.esVersion || ''}
+              onChange={onESVersionChange}
               placeholder={'7.0.0'}
               required
             />
