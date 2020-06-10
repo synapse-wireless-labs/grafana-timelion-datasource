@@ -33,6 +33,7 @@ export const QueryEditor = (props: Props) => {
             placeholder=".es()"
             onChange={onTargetChange}
             onBlur={onRunQuery}
+            rows={query.target.split(/\r\n|\r|\n/).length}
           >
             {query.target}
           </textarea>
